@@ -4,58 +4,107 @@
 import sys
 import subprocess
 import os
+import random
 
-### python REFpanel_master.py ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_260.vcf integrated_call_samples_v3.20130502.ALL.panel chr1 254 259 2 20 GBR GIH
+"""
+###When no filtered haplotipes files is provided:
+### python RefPanel_Generator_v2.py ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_260.vcf integrated_call_samples_v3.20130502.ALL.panel 
+chr1 2 10 GBR GIH
+
+###When filtered haplotipes files is provided:
+### python RefPanel_Generator_v2.py ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_260.vcf 
+filtered_ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_260.vcf integrated_call_samples_v3.20130502.ALL.panel chr1 2 10 GBR GIH
+"""
+
 ###Checking inputs###
-if len(sys.argv) < 6:
-	sys.stderr.write("Usage: python REFpanel_master.py haplotipes_file populations_file identifier_outputs start_line_haplotipes_file end_line_haplotipes_file number_ancenstral_populations number_individuals_to_take ancestral_population_1 ... ancestral_population_N ")
+if len(sys.argv) < 8:
+	sys.stderr.write("Usage when no haplotipe_filtered file is provided: python REFpanel_master.py 0 haplotipes_file populations_file identifier_outputs number_ancenstral_populations number_max_individuals_to_take ancestral_population_1 ... ancestral_population_N ")
+	sys.stderr.write("\n\nUsage when haplotipe_filtered file is provided: python REFpanel_master.py 1 haplotipes_file haplotipes_file_filtered populations_file identifier_outputs number_ancenstral_populations number_max_individuals_to_take ancestral_population_1 ... ancestral_population_N ")
 	sys.exit("\n\nNot enough arguments given!!!")
 
-#Getting all the inputs
+#Getting all the inputs when no filter file is provided
+if int(sys.argv[1]) == 0:
 
-#Haplotypes file
-hapfile = sys.argv[1]
-outhapfile = hapfile[:-4] + "_filtered.txt"
+	#Haplotypes file
+	hapfile = sys.argv[2]
+	outhapfile = "filtered_" + hapfile
 
-#Ancestral populations
-#File with ancestral population
-ancpop = sys.argv[2]
+	#Ancestral populations
+	#File with ancestral population
+	ancpop = sys.argv[3]
 
-#Line to start haplotype filtering
-sta_hap = sys.argv[4]
-#Line to finish haplotype filtering
-end_hap = sys.argv[5]
+	#Identifier outputs
+	id = sys.argv[4]
 
-#Identifier outputs
-id = sys.argv[3]
+	#Number of ancestral populations to get
+	n = int(sys.argv[5])
+	#Number of individious 
+	stop = int(sys.argv[6])
 
-#Number of ancestral populations to get
-n = int(sys.argv[6])
-#Number of individious 
-num = sys.argv[7]
+	#Filter to eliminate values non-identify by RFMix by picking the ones identify by RFMix
+	command = " grep '0|0\|0|1\|1|0\|1|1' " + hapfile + ">" +  outhapfile
+	subprocess.call (command, shell=True)
 
-#Filter to eliminate values non-identify by RFMix
-command = " grep '0|0\|0|1\|1|0\|1|1' " + hapfile + ">" +  outhapfile
-subprocess.call (command, shell=True)
+	#awk entries to start and end
+	#Start will be designed as zero
+	sta_hap = str(1)
 
-#awk entries to start and end
-#Start will be designed as zero
-sta_hap = str(1)
+	#Get the end of the file
+	command = "wc -l " + outhapfile + " | cut -d " + hapfile[0] + " -f1 | sed s/\ //g "
+	end_hap = subprocess.check_output(command, shell = True)
+	#print("Before filtering: " + end_hap + "\nAfter filtering: "+ endouthapfile)
+	#Change the value of the last row in the file
+	end_hap = end_hap[:-1]
 
-#Get the end of the file
-command = "wc -l " + outhapfile + " | cut -d " + hapfile[0] + " -f1 | sed s/\ //g "
-end_hap = subprocess.check_output(command, shell = True)
-#print("Before filtering: " + end_hap + "\nAfter filtering: "+ endouthapfile)
-#Change the value of the last row in the file
-end_hap = end_hap[:-1]
+	#Number of individuos to extract
+	num = [None] * n
+	#print(num)
+	
+	extra = 7
 
-#Number of individuos to extract
-num = [None] * n
-#print(num)
+#Getting all the inputs when no filter file is provided
+if int(sys.argv[1]) == 1:
+
+	#Haplotypes file
+	hapfile = sys.argv[2]
+	outhapfile = sys.argv[3]
+
+	#Ancestral populations
+	#File with ancestral population
+	ancpop = sys.argv[4]
+
+	#Identifier outputs
+	id = sys.argv[5]
+
+	#Number of ancestral populations to get
+	n = int(sys.argv[6])
+	#Number of individious 
+	stop = int(sys.argv[7])
+
+	#Filter to eliminate values non-identify by RFMix by picking the ones identify by RFMix
+	#command = " grep '0|0\|0|1\|1|0\|1|1' " + hapfile + ">" +  outhapfile
+	#subprocess.call (command, shell=True)
+
+	#awk entries to start and end
+	#Start will be designed as zero
+	sta_hap = str(1)
+
+	#Get the end of the file
+	command = "wc -l " + outhapfile + " | cut -d " + hapfile[0] + " -f1 | sed s/\ //g "
+	end_hap = subprocess.check_output(command, shell = True)
+	#print("Before filtering: " + end_hap + "\nAfter filtering: "+ endouthapfile)
+	#Change the value of the last row in the file
+	end_hap = end_hap[:-1]
+
+	#Number of individuos to extract
+	num = [None] * n
+	#print(num)
+	
+	extra = 8
 
 #Ancentral population will be given in argument 5 onwards
 for i in range(n):
-	indx = i + 6
+	indx = i + extra
 	pop = sys.argv[indx]
 	
 	#Take random number of invidious
@@ -74,7 +123,11 @@ for i in range(n):
 	#Get the number of output lines
 	command = "wc -l pop_ranges.txt"
 	m = subprocess.check_output (command, shell=True)
-	m = int(m[0])
+	#In donartemion
+	#m = int(m[0])
+	#In my machine
+	m = int(m[7])
+
 	#print(m)
 
 	#For to save the ranges and extract the selected haplotypes
@@ -117,7 +170,7 @@ print("Physical position and alleles have been saved\n")
 ###Generate de reference panel###
 ref_pan = id + "_full_reference_panel.txt"
 for i in range(n):
-	indx = i + 6
+	indx = i + extra
 	pop = sys.argv[indx]
 	outpop_rescued = str(num[i]) + "_" + pop + "_rescued_cut.txt"
 	if i == 0:
