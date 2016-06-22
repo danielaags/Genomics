@@ -5,6 +5,7 @@ import sys
 import subprocess
 import os
 import random
+import resource
 
 """
 ###When no filtered haplotipes files is provided:
@@ -101,6 +102,14 @@ if int(sys.argv[1]) == 1:
 	#print(num)
 	
 	extra = 8
+	
+###Get the physical position and alleles from the chromosome under analysis###
+pos_chr_legend = id +  "_reference_legend.txt"
+command = "awk 'NR>=" + sta_hap + "&&NR<=" + end_hap + "{print}NR>=" + end_hap + "{exit}' " + outhapfile + " | awk '{ print $3 \" \" $2 \" \" $4 \" \" $5}' | tr '\\t' ' ' > " + pos_chr_legend
+subprocess.call (command, shell=True)
+print("Physical position and alleles have been saved\n")
+
+ref_pan = id + "_full_reference_panel.txt"
 
 #Ancentral population will be given in argument 5 onwards
 for i in range(n):
@@ -156,23 +165,9 @@ for i in range(n):
 			subprocess.call (command, shell=True)
 			command = "mv tmp.txt "  + outpop_rescued
 			subprocess.call (command, shell=True)
-			
-			
-print("Ancenstral populations have beed rescued\n")
-
-###Get the physical position and alleles from the chromosome under analysis###
-pos_chr_legend = id +  "_reference_legend.txt"
-command = "awk 'NR>=" + sta_hap + "&&NR<=" + end_hap + "{print}NR>=" + end_hap + "{exit}' " + outhapfile + " | awk '{ print $3 \" \" $2 \" \" $4 \" \" $5}' | tr '\\t' ' ' > " + pos_chr_legend
-subprocess.call (command, shell=True)
-print("Physical position and alleles have been saved\n")
-
-
-###Generate de reference panel###
-ref_pan = id + "_full_reference_panel.txt"
-for i in range(n):
-	indx = i + extra
-	pop = sys.argv[indx]
+	
 	outpop_rescued = str(num[i]) + "_" + pop + "_rescued_cut.txt"
+	
 	if i == 0:
 		#paste -d " " chr1.reference_4col.legend 40_CHB_rescued_cut.txt 40_YRI_rescued_cut.txt > 40_full_raw_dataset_4col_CHB_YRI.txt &
 		command = "paste -d ' ' " + pos_chr_legend + " " + outpop_rescued + " > " + ref_pan
@@ -187,9 +182,10 @@ for i in range(n):
 		subprocess.call (command, shell=True)
 		#command = "cat " + ref_pan 
 		#subprocess.call (command, shell=True)
-		
-print("Reference Panel Generated\n")	
-
+			
+			
+print("Ancenstral populations have beed rescued\n and Reference Panel was generated\n")
+	
 ###Remove temporal files###
 command = "rm -f -r pop_ranges.txt"
 subprocess.call(command, shell=True)
@@ -204,3 +200,6 @@ subprocess.call(command, shell=True)
 print("Files generated and moved to " + out_folder)
 command = "ls " +  out_folder + "| grep '.txt' "
 print(subprocess.check_output(command, shell=True))	
+
+mem = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+print "memory usage:", mem
