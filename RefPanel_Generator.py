@@ -9,12 +9,12 @@ import resource
 
 """
 ###When no filtered haplotipes files is provided:
-### python RefPanel_Generator_v2.py ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_260.vcf integrated_call_samples_v3.20130502.ALL.panel 
+### python RefPanel_Generator_v3.py ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_260.vcf integrated_call_samples_v3.20130502.ALL.panel 
 chr1 2 10 GBR GIH
 
 ###When filtered haplotipes files is provided:
-### python RefPanel_Generator_v2.py ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_260.vcf 
-filtered_ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_260.vcf integrated_call_samples_v3.20130502.ALL.panel chr1 2 10 GBR GIH
+### python RefPanel_Generator__.py ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_260.vcf 
+ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_filtered.txt integrated_call_samples_v3.20130502.ALL.panel chr1 2 10 GBR GIH
 """
 
 ###Checking inputs###
@@ -55,7 +55,7 @@ if int(sys.argv[1]) == 0:
 	end_hap = subprocess.check_output(command, shell = True)
 	#print("Before filtering: " + end_hap + "\nAfter filtering: "+ endouthapfile)
 	#Change the value of the last row in the file
-	end_hap = end_hap[:-1]
+	end_hap = end_hap[0]
 
 	#Number of individuos to extract
 	num = [None] * n
@@ -95,7 +95,7 @@ if int(sys.argv[1]) == 1:
 	end_hap = subprocess.check_output(command, shell = True)
 	#print("Before filtering: " + end_hap + "\nAfter filtering: "+ endouthapfile)
 	#Change the value of the last row in the file
-	end_hap = end_hap[:-1]
+	end_hap = end_hap[0]
 
 	#Number of individuos to extract
 	num = [None] * n
@@ -105,6 +105,8 @@ if int(sys.argv[1]) == 1:
 	
 ###Get the physical position and alleles from the chromosome under analysis###
 pos_chr_legend = id +  "_reference_legend.txt"
+print (sta_hap)
+print (end_hap)
 command = "awk 'NR>=" + sta_hap + "&&NR<=" + end_hap + "{print}NR>=" + end_hap + "{exit}' " + outhapfile + " | awk '{ print $3 \" \" $2 \" \" $4 \" \" $5}' | tr '\\t' ' ' > " + pos_chr_legend
 subprocess.call (command, shell=True)
 print("Physical position and alleles have been saved\n")
