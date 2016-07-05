@@ -6,6 +6,7 @@ import subprocess
 import os
 import random
 import resource
+import pandas as pd
 
 """
 ###When no filtered haplotipes files is provided:
@@ -51,13 +52,14 @@ if int(sys.argv[1]) == 0:
 	sta_hap = str(1)
 
 	#Get the end of the file
-	command = "wc -l " + outhapfile + " | cut -d " + hapfile[0] + " -f1 | sed s/\ //g "
+	command = "wc -l " + outhapfile + " | cut -d " + outhapfile[0] + " -f1 | sed s/\ //g"
 	end_hap = subprocess.check_output(command, shell = True)
-	#print("Before filtering: " + end_hap + "\nAfter filtering: "+ endouthapfile)
+	end_hap = end_hap.rstrip()
+	print(end_hap)
 	#Change the value of the last row in the file
-	end_hap = end_hap[0]
+	#end_hap = end_hap[0]
 
-	#Number of individuos to extract
+	#Keeps track of the number of individuos to extract after being randomly selected
 	num = [None] * n
 	#print(num)
 	
@@ -67,20 +69,20 @@ if int(sys.argv[1]) == 0:
 if int(sys.argv[1]) == 1:
 
 	#Haplotypes file
-	hapfile = sys.argv[2]
-	outhapfile = sys.argv[3]
+	#hapfile = sys.argv[2]
+	outhapfile = sys.argv[2]
 
 	#Ancestral populations
 	#File with ancestral population
-	ancpop = sys.argv[4]
+	ancpop = sys.argv[3]
 
 	#Identifier outputs
-	id = sys.argv[5]
+	id = sys.argv[4]
 
 	#Number of ancestral populations to get
-	n = int(sys.argv[6])
+	n = int(sys.argv[5])
 	#Number of individious 
-	stop = int(sys.argv[7])
+	stop = int(sys.argv[6])
 
 	#Filter to eliminate values non-identify by RFMix by picking the ones identify by RFMix
 	#command = " grep '0|0\|0|1\|1|0\|1|1' " + hapfile + ">" +  outhapfile
@@ -91,23 +93,23 @@ if int(sys.argv[1]) == 1:
 	sta_hap = str(1)
 
 	#Get the end of the file
-	command = "wc -l " + outhapfile + " | cut -d " + hapfile[0] + " -f1 | sed s/\ //g "
+	command = "wc -l " + outhapfile + " | cut -d " + outhapfile[0] + " -f1 | sed s/\ //g"
 	end_hap = subprocess.check_output(command, shell = True)
-	#print("Before filtering: " + end_hap + "\nAfter filtering: "+ endouthapfile)
-	#Change the value of the last row in the file
-	end_hap = end_hap[0]
+	end_hap = end_hap.rstrip()
+	print(end_hap)
 
-	#Number of individuos to extract
+	#Keeps track of the number of individuos to extract after being randomly selected
 	num = [None] * n
 	#print(num)
 	
 	extra = 8
+
 	
 ###Get the physical position and alleles from the chromosome under analysis###
 pos_chr_legend = id +  "_reference_legend.txt"
-print (sta_hap)
-print (end_hap)
+#awk 'NR>=254&&NR<=6468347{print}NR>=6468347{exit}' ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes_filtered.vcf  | awk '{ print $3 " " $2 " " $4 " " $5}' | tr '\t' ' ' > chr1.reference_4col.legend &
 command = "awk 'NR>=" + sta_hap + "&&NR<=" + end_hap + "{print}NR>=" + end_hap + "{exit}' " + outhapfile + " | awk '{ print $3 \" \" $2 \" \" $4 \" \" $5}' | tr '\\t' ' ' > " + pos_chr_legend
+print (command)
 subprocess.call (command, shell=True)
 print("Physical position and alleles have been saved\n")
 
@@ -131,36 +133,27 @@ for i in range(n):
 	command = "awk 'NR==1{first=$1;last=$1;next} $1 == last+1 {last=$1;next} {print first,last;first=$1;last=first} END{print first,last}' " +  outpop + " > pop_ranges.txt"
 	subprocess.call (command, shell=True)
 	
-	#Get the number of output lines
-	command = "wc -l pop_ranges.txt"
-	m = subprocess.check_output (command, shell=True)
-	#In donartemion
-	#m = int(m[0])
-	#In my machine
-	m = int(m[7])
+	#Turn data into a .csv file
+	command = "cat pop_ranges.txt | tr ' ' ',' > pop_ranges.csv "
+	subprocess.call (command, shell=True)
+	#Read the ranges using pandas
+	r = pd.read_csv("./pop_ranges.csv", header = None)
+	#Get the number of rows
+	m = len(r.index)
 
 	#print(m)
 
 	#For to save the ranges and extract the selected haplotypes
 	for j in range(m):
-		#Where to start
-		command = "sed -n " + str(j+1) + "p pop_ranges.txt | cut -d ' ' -f1 | sed s/\ //g "
-		s = subprocess.check_output (command, shell=True)
-		# First haplotype starts in column 8
-		s = int(s[:-1]) + 8
-		#Where to end
-		command = "sed -n " + str(j+1) + "p pop_ranges.txt | cut -d ' ' -f2 | sed s/\ //g "
-		e = subprocess.check_output (command, shell=True)
-		e = int(e[:-1]) + 8
-		#Get the data
+		#Name of the file
 		outpop_rescued = str(num[i]) + "_" + pop + "_rescued_cut.txt" 
 		#Cut may do the same as awk
-		command = "cut -f" + str(s) + "-" + str(e) + " " + outhapfile + " |  tr '|' ' ' | tr '\\t' ' '  > " + outpop_rescued
+		command = "cut -f" + str(r.iloc[j,0]+8) + "-" + str(r.iloc[j,1]+8) + " " + outhapfile + " |  tr '|' ' ' | tr '\\t' ' '  > " + outpop_rescued
 		subprocess.call (command, shell=True)
 		#If ranges are given in more than one line
 		if j > 0:
 			#Temporal file to save ranges, if needed
-			command = "cut -f" + str(s) + "-" + str(e) + " " + outhapfile +  " |  tr '|' ' ' | tr '\\t' ' '  >  temporal_rescued_cut.txt"
+			command = "cut -f" + r.iloc[j,0] + "-" + r.iloc[j,1] + " " + outhapfile + " |  tr '|' ' ' | tr '\\t' ' '  >  temporal_rescued_cut.txt"
 			subprocess.call (command, shell=True)
 			#The paste command allows the column concatenation needed in this case
 			command = "paste -d ' ' " + outpop_rescued + " temporal_rescued_cut.txt > tmp.txt"	
@@ -190,6 +183,8 @@ print("Ancenstral populations have beed rescued\n and Reference Panel was genera
 	
 ###Remove temporal files###
 command = "rm -f -r pop_ranges.txt"
+subprocess.call(command, shell=True)
+command = "rm -f -r pop_ranges.csv"
 subprocess.call(command, shell=True)
 command = "rm -f -r temporal_rescued_cut.txt"
 subprocess.call(command, shell=True)
