@@ -1,0 +1,58 @@
+#Declare useful libraries
+library(DECIPHER);
+library(tidyverse);
+
+#For circular plotting
+library(GenomicRanges)
+library(ggbio)
+
+#library(BioCircos)
+
+#Set working directory
+setwd('/Users/danielaagarcia-soriano/Documents/Postdoc/')
+
+###debs###
+#Read using tidyverse
+mutations <- read.table('./Sequencing/miseq/debs_results/output/mutations/mutations.txt', stringsAsFactors = F)
+#correct name
+colnames(mutations) <- c("position", "type")
+#plot frequency
+p <- ggplot(mutations, aes(type, fill=type)) +
+  geom_bar()
+p <- p + theme(axis.text.x = element_blank()) 
+p + scale_y_continuous(breaks=seq(0, 13, 1))
+ggplot_build(p)$data
+#coding #F8766D / intergenic #A3A500 / nonsense #00BF7D / nonsynon #00B0F6 / syno #E76BF3
+
+#Plot in a circular representation
+plasmid_gr <- GRanges(seqnames = c('plasmid'), ranges = IRanges(start=1, end=49215))
+p <- ggbio() + circle(plasmid_gr, geom = "rect")
+
+debs_gr <- GRanges(seqnames = rep('plasmid', 3), ranges = IRanges(start=c(18200, 28946, 39682), end=c(28789, 39649, 49197)), type = c("debs1", "debs2", "debs3"))
+p <- p + circle(debs_gr, geom = "rect", aes(y=type), fill='gray70')
+
+primers_gr <- GRanges(seqnames = rep('plasmid', 17), ranges = IRanges(start = mutations$V1, end = mutations$V1), type = mutations$V2)
+p + circle(primers_gr, geom = "rect", aes(color=type, fill=type))
+
+###glyco###
+mutations <- read.table('./Sequencing/miseq/glyco_results/output/mutations/mutations.txt', stringsAsFactors = F)
+#correct name
+colnames(mutations) <- c("position", "type")
+#plot frequency
+p <- ggplot(mutations, aes(type, fill=type)) +
+  geom_bar()
+p <- p + theme(axis.text.x = element_blank()) 
+p <- p + scale_y_continuous(limits=c(0, 13), breaks = seq(0, 13, 1) )
+p <- p + scale_fill_manual(values=c("#A3A500", "#00B0F6", "#E76BF3"))
+                       
+gens <- read.table('./Sequencing/miseq/glyco_results/output/mutations/mut_genes.txt', stringsAsFactors = F)
+
+#Plot in a circular representation
+plasmid_gr <- GRanges(seqnames = c('plasmid'), ranges = IRanges(start=1, end=74504))
+p <- ggbio() + circle(plasmid_gr, geom = "rect")
+
+glyco_gr <- GRanges(seqnames = rep('plasmid', 7), ranges = IRanges(start = gens$V2, end = gens$V3), type = gens$V1)
+p <- p + circle(glyco_gr, geom = "rect", fill='gray70')
+
+primers_gr <- GRanges(seqnames = rep('plasmid', 13), ranges = IRanges(start = mutations$V1, end = mutations$V1), type = mutations$V2)
+p + circle(primers_gr, geom = "rect", aes(color=type, fill=type))
