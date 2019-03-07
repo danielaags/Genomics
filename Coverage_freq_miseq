@@ -1,0 +1,91 @@
+## load bam file using the which argument to ScanBamParam
+library(Rsamtools)
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(tibble)
+library(Biostrings)
+library(BSgenome)
+
+
+#Get into the right library
+setwd("/Users/Daniela/Documents/Postdoc/Sequencing/miseq/190212/Analysis")
+#setwd("./Documents/Postdoc/Sequencing/miseq/190212")
+
+#bamfile <- "19dh1_amplicons.bam" #empty
+#bamfile <- "20at_amplicons.bam"
+bamfile <- "21tyl_amplicons.bam"
+bf <- BamFile(bamfile)
+#Define region of interest, check first .bam header
+
+#20at_amplicons.bam
+#which <- IRangesList(pYES1L_DEBS123co = IRanges(35930, 36229))
+#21tyl_amplicons.bam
+which <- IRangesList(pCC1FOS_glyco_td = IRanges(1879, 4325))
+
+
+param <- ScanBamParam(what=scanBamWhat(), which=which)
+#Be less stringent with the max_depth and remove strad ID
+p_param <- PileupParam(max_depth=1000, distinguish_strand=TRUE, include_insertions=FALSE)
+
+#pile-up to get the region of interest
+res <- pileup(bf, scanBamParam=param, pileupParam=p_param)
+
+##Special function##
+pileupFreq <- function(pileupres) {
+  nucleotides <- levels(pileupres$nucleotide)
+  res <- split(pileupres, pileupres$seqnames)
+  res <- lapply(res, function (x) {split(x, x$pos)})
+  res <- lapply(res, function (positionsplit) {
+    nuctab <- lapply(positionsplit, function(each) {
+      chr = as.character(unique(each$seqnames))
+      pos = as.character(unique(each$pos))
+      tablecounts <- sapply(nucleotides, function (n) {sum(each$count[each$nucleotide == n])})
+      c(chr,pos, tablecounts)
+    })
+    nuctab <- data.frame(do.call("rbind", nuctab),stringsAsFactors=F)
+    rownames(nuctab) <- NULL
+    nuctab
+  })
+  res <- data.frame(do.call("rbind", res),stringsAsFactors=F)
+  rownames(res) <- NULL
+  colnames(res) <- c("seqnames","start",levels(pileupres$nucleotide))
+  res[3:ncol(res)] <- apply(res[3:ncol(res)], 2, as.numeric)
+  res
+}
+
+#Find the frequencies
+res_freq <- pileupFreq(res)
+#Select only nt frequency and turn unto tidy data
+nt_freq <- select(res_freq, start, A, C, G, T)
+#Define the region of interest, usually the on covered by the MAGE oligo
+nt_freq <- filter(nt_freq, start > 1880 & start < 1976)
+#Add the original sequence
+wt <- "ggctgcttctaccaccaccgaaggtaacgttggtcgtatcaaagcttgccgtcttatcaccctggaacagcacaacgacgaacgcggtagcctgt"
+base <- substring(wt, seq(1, nchar(wt), 1), seq(1,nchar(wt),1))
+nt_freq <- add_column(nt_freq, wt = base)
+nt_freq <- gather(nt_freq, 'A', 'C', 'G', 'T', key = "nt", value = "freq")
+nt_freq <- transform(nt_freq, freq=as.factor(freq), 
+                     group = as.factor(findInterval(freq, seq(0, 1500, by=750))))
+
+#Plot
+#From factors to numeric
+nt_freq$freq=as.numeric(levels(nt_freq$freq))[nt_freq$freq]
+
+#Create my own breaks
+my_breaks <- function(x) { if (max(x) > 20) seq(0, 1000, 200) else seq(0, 10, 2) }
+
+p <- ggplot(nt_freq, aes(as.integer(start), freq, fill = nt)) +
+  facet_grid(group~., scales="free") +
+  geom_bar(stat = "identity") +
+  scale_y_continuous(breaks = my_breaks) 
+
+#Add oligos sequences
+seq <- readDNAStringSet("tyl_sequences.fa")
+
+oligo <- tolower(as.character(seq[[1]]))
+at <- substring(oligo, seq(1, nchar(wt), 1), seq(1,nchar(wt),1))
+
+#Change x-axis to nt sequences and add oligos sequences
+p +  scale_x_continuous("sequence", breaks = 1881 : 1975, labels = base, sec.axis = dup_axis(labels = at)) +
+  labs(title="tylA") 
