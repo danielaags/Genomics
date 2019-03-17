@@ -113,10 +113,10 @@ print(var)
 #Get MAGE efficiency per base
 eff <- (var/base)*100
 #Integrate in the data frame
-nt_data <- cbind(eff, nt_data)
+nt_data <- cbind(eff, MAGE = oligo[1:nrow(nt_data)], nt_data)
 #Form groups to plot
-nt_data <- transform(nt_data, freq=as.factor(eff), 
-                     group = as.factor(findInterval(eff, seq(0, 110, by=55))))
+nt_data <- transform(nt_data, 
+          group = as.factor(findInterval(eff, seq(0, 110, by=55))))
 nt_data
 }
 
@@ -126,7 +126,7 @@ nt_eff <- count_eff(nt_freq_tylA, wt, oligo)
 #Create my own breaks
 my_breaks <- function(x) { if (max(x) > 50) seq(0, 110, 20) else seq(0, 1, 0.2) }
 
-p <- ggplot(nt_eff, aes(as.integer(start), eff, fill = group)) +
+p <- ggplot(nt_eff, aes(as.integer(start), eff, fill = MAGE)) +
   facet_grid(group~., scales="free") +
   geom_bar(stat = "identity") +
   scale_y_continuous(breaks = my_breaks) 
@@ -135,8 +135,8 @@ p <- ggplot(nt_eff, aes(as.integer(start), eff, fill = group)) +
 p +  scale_x_continuous("sequence", breaks = 1881 : 1975, labels = wt, sec.axis = dup_axis(labels = oligo[1:length(wt)])) +
   labs(title="tylA") 
 
-#Try to get different axis, did not work
+#Try to add an extra axis. Did not work
 #p + scale_x_discrete(breaks = seq(1881, 1976, 30), labels = c(1, 30, 60, 90))
 
 #Change the text size
-#p + theme(axis.text = element_text(angle = , size = 10))
+p + theme(axis.text = element_text(angle = , size = 10))
