@@ -1,0 +1,11 @@
+#Index reference using bowtie2
+# generate reference from fasta file to a bowtie
+bowtie2-build pyes1l_debs123co.fasta debs_bowtie 
+
+#Align reads to reference
+#-S name of output file
+bowtie2 -x debs_bowtie -1 20-at-all_S20_L001_R1_001.fastq -2 20-at-all_S20_L001_R2_001.fastq -S 20at_amplicons.sam
+
+#samtools
+samtools sort -@2 -o 20at_amplicons.bam 20at_amplicons.sam
+samtools index 20at_amplicons.bam
