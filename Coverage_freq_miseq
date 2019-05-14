@@ -1,32 +1,22 @@
-## Load bam file using the which argument to ScanBamParam
+## load bam file using the which argument to ScanBamParam
 library(Rsamtools)
 library(ggplot2)
 library(tidyr)
 library(dplyr)
 library(tibble)
-library(Biostrings)
-library(BSgenome)
-
 
 #Get into the right library
-setwd("/Users/Daniela/Documents/Postdoc/Sequencing/miseq/190212/Analysis/")
-#setwd("./Documents/Postdoc/Sequencing/miseq/190212")
+#setwd("./Documents/Postdoc/Sequencing/miseq/190212/Analysis")
+setwd("./Documents/Postdoc/Sequencing/miseq/190212")
 
-#bamfile <- "19dh1_amplicons.bam" #empty
-#bamfile <- "20at_amplicons.bam"
-bamfile <- "21tyl_amplicons.bam"
+
+bamfile <- "20at_amplicons.bam"
 bf <- BamFile(bamfile)
-#Define region of interest, check first .bam header
-
-#20at_amplicons.bam
-#which <- IRangesList(pYES1L_DEBS123co = IRanges(35000, 35400))
-#21tyl_amplicons.bam
-which <- IRangesList(pCC1FOS_glyco_td = IRanges(1780, 4200))
-
-
-param <- ScanBamParam(what=scanBamWhat())
+#Define region of interest
+which <- IRangesList(pYES1L_DEBS123co = IRanges(35000, 35500))
+param <- ScanBamParam(what=scanBamWhat(), which=which)
 #Be less stringent with the max_depth and remove strad ID
-p_param <- PileupParam(max_depth=10000, distinguish_strand=FALSE)
+p_param <- PileupParam(max_depth=1000, distinguish_strand=FALSE)
 
 #pile-up to get the region of interest
 res <- pileup(bf, scanBamParam=param, pileupParam=p_param)
@@ -58,85 +48,25 @@ pileupFreq <- function(pileupres) {
 res_freq <- pileupFreq(res)
 #Select only nt frequency and turn unto tidy data
 nt_freq <- select(res_freq, start, A, C, G, T)
+nt_freq <- filter(nt_freq, start > 35122 & start < 35216)
+#Add the original sequence
+wt <- "tggcgcgctcacggcgtaaccccggctgctgtagttggccactcccagggtgagatcgcagcggcacacgtggcgggcgcgctgtctcttgaa"
+base <- substring(wt, seq(1, nchar(wt), 1), seq(1,nchar(wt),1))
+nt_freq <- add_column(nt_freq, wt = base)
+nt_freq <- gather(nt_freq, 'A', 'C', 'G', 'T', key = "nt", value = "freq")
+nt_freq <- transform(nt_freq, freq=as.factor(freq), 
+                     group = as.factor(findInterval(freq, seq(1, 1000, by=500))))
 
-#Add sequences
-wt_seqs <- readDNAStringSet("tyl_sequences.fa")
-MAGE_seqs <- readDNAStringSet("tyl_MAGEsequences.fa")
-
-#Define the region of interest, usually the on covered by the MAGE oligo
-wt <- tolower(as.character(wt_seqs[[1]]))
-wt <- substring(wt, seq(1, nchar(wt), 1), seq(1,nchar(wt),1))
-
-#Define the MAGE sequence
-oligo <- tolower(as.character(MAGE_seqs[[1]]))
-oligo <- substring(oligo, seq(1, nchar(oligo), 1), seq(1,nchar(oligo),1))
-
-#21amplicon
-#tylA
-nt_freq_tylA <- filter(nt_freq, start >= 1881 & start <= 1975)
-
-
-#Function to get the # of reads per site
-count_eff <- function(nt_data, wt, oligo) {
-#Generate empty data frames to save calculations
-base <- 1:nrow(nt_data)
-var <- 1:nrow(nt_data)
-
-#Count the frequency to the wt sequence
-for (i in 1:nrow(nt_data)){
-  #print(i)
-  if (wt[i] == "a"){
-    base[i] <- nt_data[i,2]
-  } else if (wt[i] == "c"){
-    base[i] <- nt_data[i,3]
-  } else if (wt[i] == "g"){
-    base[i] <- nt_data[i,4]
-  } else if (wt[i] == "t"){
-    base[i] <- nt_data[i,5]
-  }
-}
-print(base)
-#Count the frequency to the MAGE oligo
-for (i in 1:nrow(nt_data)){
-  #print(j)
-  if (oligo[i] == "a"){
-    var[i] <- nt_data[i,2]
-  } else if (oligo[i] == "c"){
-    var[i] <- nt_data[i,3]
-  } else if (oligo[i] == "g"){
-    var[i] <- nt_data[i,4]
-  } else if (oligo[i] == "t"){
-    var[i] <- nt_data[i,5]
-  }
-}
-print(var)
-#Get MAGE efficiency per base
-eff <- (var/base)*100
-#Integrate in the data frame
-nt_data <- cbind(eff, MAGE = oligo[1:nrow(nt_data)], nt_data)
-#Form groups to plot
-nt_data <- transform(nt_data, 
-          group = as.factor(findInterval(eff, seq(0, 110, by=55))))
-nt_data
-}
-
-nt_eff <- count_eff(nt_freq_tylA, wt, oligo)
 
 #Plot
+#From factors to numeric
+nt_freq$freq=as.numeric(levels(nt_freq$freq))[nt_freq$freq]
 #Create my own breaks
-my_breaks <- function(x) { if (max(x) > 50) seq(0, 110, 20) else seq(0, 1, 0.2) }
+my_breaks <- function(x) { if (max(x) > 10) seq(0, 1000, 200) else seq(0, 10, 2) }
 
-p <- ggplot(nt_eff, aes(as.integer(start), eff, fill = MAGE)) +
+p <- ggplot(nt_freq, aes(start, freq, fill = nt)) +
   facet_grid(group~., scales="free") +
-  geom_bar(stat = "identity") +
-  scale_y_continuous(breaks = my_breaks) 
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_y_continuous(breaks = my_breaks)
 
-#Change x-axis to nt sequences and add oligos sequences
-p +  scale_x_continuous("sequence", breaks = 1881 : 1975, labels = wt, sec.axis = dup_axis(labels = oligo[1:length(wt)])) +
-  labs(title="tylA") 
-
-#Try to add an extra axis. Did not work
-#p + scale_x_discrete(breaks = seq(1881, 1976, 30), labels = c(1, 30, 60, 90))
-
-#Change the text size
-p + theme(axis.text = element_text(angle = , size = 10))
+p +  scale_x_discrete(labels = base)
