@@ -1,3 +1,3 @@
 # Scripts
 
-Different project, different languages
+Different projects, different languages
